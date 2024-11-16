@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>המשמרות שלי - שקדייה</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        /* סגנון תצוגת לוח שנה */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .day-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            min-height: 200px;
+        }
+        .day-header {
+            font-weight: bold;
+            text-align: center;
+            padding: 5px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .shift-container {
+            margin-bottom: 10px;
+        }
+        .shift-morning {
+            border-right: 4px solid #ffc107;
+            padding: 5px;
+            margin: 5px 0;
+            background-color: #fff9e6;
+        }
+        .shift-evening {
+            border-right: 4px solid #17a2b8;
+            padding: 5px;
+            margin: 5px 0;
+            background-color: #e6f7fa;
+        }
+        .shift-time {
+            font-size: 0.9em;
+            color: #666;
+        }
+        /* סגנון כפתורים */
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            text-decoration: none;
+            color: white;
+            margin-left: 10px;
+        }
+        .download-btn {
+            background-color: #28a745;
+        }
+        .logout-btn {
+            background-color: #dc3545;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>המשמרות שלי</h1>
+                <p>שלום, {{ system.users[username].first_name }}</p>
+            </div>
+            <div>
+                <a href="{{ url_for('download_user_schedule') }}" class="btn download-btn">הורד PDF</a>
+                <a href="{{ url_for('logout') }}" class="btn logout-btn">התנתק</a>
+            </div>
+        </div>
+
+        <div class="calendar-grid">
+            {% for day, shifts in user_schedule.items() %}
+            <div class="day-card">
+                <div class="day-header">{{ day }}</div>
+                {% for shift in shifts %}
+                <div class="shift-container">
+                    <div class="{% if shift.start_time < '12:00' %}shift-morning{% else %}shift-evening{% endif %}">
+                        <div class="shift-time">
+                            {{ 'משמרת בוקר' if shift.start_time < '12:00' else 'משמרת ערב' }}<br>
+                            {{ shift.start_time }} - {{ shift.end_time }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html> 
