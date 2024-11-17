@@ -9,32 +9,34 @@ import os
 app = Flask(__name__)
 system = ShiftManagementSystem()
 
-# יצירת מנהל ראשי עם פרטי התחברות
+# יצירת מנהל ראשי עם פרטים קבועים
 admin_user = User(
     username='admin',
-    password='admin123',  # סיסמה לדוגמה
+    password='admin123',  # הגדרת סיסמה קבועה
     first_name='מנהל',
     last_name='ראשי',
     is_admin=True
 )
+
+# הוספת המנהל למערכת
 system.users['admin'] = admin_user
 
-# הוספת עובדים לדוגמה בעברית
-example_employees = [
-    {'username': 'yossi', 'first_name': 'יוסי', 'last_name': 'כהן', 'password': '1234'},
-    {'username': 'rachel', 'first_name': 'רחל', 'last_name': 'לוי', 'password': '1234'},
-    {'username': 'moshe', 'first_name': 'משה', 'last_name': 'ישראלי', 'password': '1234'},
-    {'username': 'sara', 'first_name': 'שרה', 'last_name': 'דוד', 'password': '1234'}
-]
-
-for emp in example_employees:
-    user = User(
-        username=emp['username'],
-        password=emp['password'],
-        first_name=emp['first_name'],
-        last_name=emp['last_name']
-    )
-    system.users[emp['username']] = user
+# שמירת הנתונים
+if not os.path.exists('schedule.json'):
+    system.save_to_file('schedule.json')
+    print("Created new admin account")
+else:
+    try:
+        system.load_from_file('schedule.json')
+        # וידוא שהמנהל קיים עם הסיסמה הנכונה
+        if 'admin' not in system.users:
+            system.users['admin'] = admin_user
+            system.save_to_file('schedule.json')
+        elif system.users['admin'].password != 'admin123':
+            system.users['admin'].password = 'admin123'
+            system.save_to_file('schedule.json')
+    except Exception as e:
+        print(f"Error loading data: {str(e)}")
 
 # הוספת מפתח סודי לשמירת הסשן
 app.secret_key = secrets.token_hex(16)
@@ -265,15 +267,16 @@ def add_employee():
         return redirect(url_for('user_schedule'))
     
     if request.method == 'POST':
-        # הוספת העובד החדש
         username = request.form.get('username')
         if username in system.users:
             flash('שם משתמש כבר קיים במערכת', 'error')
             return redirect(url_for('employees'))
         
+        # יצירת משתמש חדש עם סיסמה
+        password = request.form.get('password', '1234')  # אם לא הוזנה סיסמה, ברירת מחדל היא 1234
         user = User(
             username=username,
-            password=request.form.get('password', '1234'),  # סיסמת ברירת מחדל
+            password=password,  # הגדרת הסיסמה
             first_name=request.form.get('first_name', ''),
             last_name=request.form.get('last_name', ''),
             email=request.form.get('email', ''),
@@ -283,8 +286,8 @@ def add_employee():
         )
         
         system.users[username] = user
-        system.save_to_file('schedule.json')
-        flash('העובד נוסף בהצלחה', 'success')
+        system.save_to_file('schedule.json')  # שמירת השינויים
+        flash(f'העובד נוסף בהצלחה. שם משתמש: {username}, סיסמה: {password}', 'success')
         return redirect(url_for('employees'))
     
     pending_appeals_count = len(system.get_pending_appeals())
@@ -301,6 +304,10 @@ def edit_employee(username):
     if request.method == 'POST':
         try:
             user = system.users[username]
+            # אם לא הוזנה סיסמה חדשה, נשאיר את הקיימת
+            new_password = request.form.get('password')
+            if new_password and new_password != 'None':
+                user.password = new_password
             user.first_name = request.form.get('first_name', user.first_name)
             user.last_name = request.form.get('last_name', user.last_name)
             user.employee_number = request.form.get('employee_number', user.employee_number)
@@ -319,6 +326,11 @@ def edit_employee(username):
     if not user:
         flash('העובד לא נמצא', 'error')
         return redirect(url_for('employees'))
+    
+    # אם אין סיסמה, נגדיר סיסמת ברירת מחדל
+    if not user.password or user.password == 'None':
+        user.password = '1234'
+        system.save_to_file('schedule.json')
     
     pending_appeals_count = len(system.get_pending_appeals())
     return render_template('edit_employee.html', 
@@ -386,7 +398,7 @@ def save_employee():
             if username in system.users:
                 return jsonify({
                     'success': False,
-                    'message': 'עובד עם שם זה כבר קיים במערכת'
+                    'message': 'עובד עם שם זה כבר קיי במערכת'
                 })
             
             # יצירת משתמש חדש כעובד רגיל (לא מנהל)

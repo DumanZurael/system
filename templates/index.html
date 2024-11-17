@@ -198,6 +198,62 @@
             font-size: 0.8em;
             margin-right: 5px;
         }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            left: 10px;
+            top: 10px;
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close-modal:hover {
+            color: black;
+        }
+
+        .employee-details {
+            margin-top: 20px;
+        }
+
+        .employee-details p {
+            margin: 10px 0;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .employee-name {
+            cursor: pointer;
+            color: var(--primary-color);
+            text-decoration: underline;
+        }
+
+        .employee-name:hover {
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
@@ -245,6 +301,20 @@
                     {% endfor %}
                 </div>
                 {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div id="employeeDetailsModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-modal" onclick="hideEmployeeDetails()">&times;</span>
+            <h3>פרטי עובד</h3>
+            <div class="employee-details">
+                <p><strong>שם מלא:</strong> <span id="fullName"></span></p>
+                <p><strong>מספר עובד:</strong> <span id="empNumber"></span></p>
+                <p><strong>טלפון:</strong> <span id="empPhone"></span></p>
+                <p><strong>אימייל:</strong> <span id="empEmail"></span></p>
+                <p><strong>תעודת זהות:</strong> <span id="empId"></span></p>
             </div>
         </div>
     </div>
@@ -324,6 +394,10 @@
                         data.id_number || 'לא הוגדר';
                     
                     document.getElementById('employeeDetailsModal').style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('אירעה שגיאה בטעינת פרטי העובד');
                 });
         }
 

@@ -17,6 +17,35 @@ class User:
         self.employee_number = employee_number
         self.is_admin = is_admin
         
+    def to_dict(self):
+        """המרת המשתמש למילון"""
+        return {
+            'username': self.username,
+            'password': self.password,
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            'email': self.email,
+            'phone': self.phone,
+            'id_number': self.id_number,
+            'employee_number': self.employee_number,
+            'is_admin': self.is_admin
+        }
+
+    @staticmethod
+    def from_dict(data):
+        """יצירת משתמש ממילון"""
+        return User(
+            username=data.get('username', ''),
+            password=data.get('password', ''),
+            first_name=data.get('first_name', ''),
+            last_name=data.get('last_name', ''),
+            email=data.get('email', ''),
+            phone=data.get('phone', ''),
+            id_number=data.get('id_number', ''),
+            employee_number=data.get('employee_number', ''),
+            is_admin=data.get('is_admin', False)
+        )
+
 class Shift:
     def __init__(self, start_time: time, end_time: time):
         self.start_time = start_time
@@ -401,7 +430,7 @@ class ShiftManagementSystem:
         return False, '', ''
 
 if __name__ == "__main__":
-    # אם מריצים את הקובץ הזה ישירות, לא יקרה כלום
+    # אם מריצים את הקובץ הזה ישירות, לא יקר�� כלום
     # צריך להריץ את shift_management_demo.py
     print("זהו מודול המכיל את הלוגיקה של המערכת.")
     print("כדי להריץ את המערכת, הרץ את הקובץ shift_management_demo.py")
