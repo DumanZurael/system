@@ -1,0 +1,43 @@
+<div class="admin-nav">
+    <a href="{{ url_for('index') }}" {% if active_page == 'schedule' %}class="active"{% endif %}>לוח משמרות</a>
+    <a href="{{ url_for('employees') }}" {% if active_page == 'employees' %}class="active"{% endif %}>ניהול עובדים</a>
+    <a href="{{ url_for('view_appeals') }}" {% if active_page == 'appeals' %}class="active"{% endif %}>
+        ערעורים
+        {% if pending_appeals_count > 0 %}
+        <span class="appeals-badge">{{ pending_appeals_count }}</span>
+        {% endif %}
+    </a>
+    <a href="{{ url_for('logout') }}" style="float: left;">התנתק</a>
+</div>
+
+<style>
+    .admin-nav {
+        margin-bottom: 20px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .admin-nav a {
+        margin-left: 15px;
+        padding: 5px 10px;
+        text-decoration: none;
+        color: #333;
+        border-radius: 4px;
+    }
+    .admin-nav a:hover {
+        background-color: #e9ecef;
+    }
+    .admin-nav a.active {
+        background-color: #007bff;
+        color: white;
+    }
+    .appeals-badge {
+        background-color: #dc3545;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 0.8em;
+        margin-right: 5px;
+    }
+</style> 

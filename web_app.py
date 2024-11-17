@@ -73,23 +73,46 @@ def logout():
 @app.route('/user_schedule')
 @login_required
 def user_schedule():
-    username = session['username']
-    if username not in system.users:
+    try:
+        username = session['username']
+        if username not in system.users:
+            return redirect(url_for('login'))
+        
+        view_type = request.args.get('view', 'week')
+        week_offset = int(request.args.get('week_offset', 0))
+        
+        # קבלת התאריך הנוכחי בישראל
+        israel_time = system.get_israel_time()
+        current_date = israel_time.strftime('%d/%m/%Y')
+        current_time = israel_time.strftime('%H:%M')
+        
+        if view_type == 'month':
+            schedule = system.get_monthly_schedule(week_offset // 4)
+        else:
+            schedule = system.get_weekly_schedule(week_offset)
+        
+        user_shifts = {}
+        for day, shifts in schedule.items():
+            user_shifts[day] = []
+            for shift in shifts:
+                if username in shift['employees']:
+                    user_shifts[day].append(shift)
+        
+        max_history_weeks = 4
+        
+        return render_template('user_schedule.html', 
+                             user_schedule=user_shifts,
+                             system=system,
+                             username=username,
+                             current_week_offset=week_offset,
+                             max_history_weeks=max_history_weeks,
+                             view_type=view_type,
+                             current_date=current_date,
+                             current_time=current_time)
+    except Exception as e:
+        print(f"Error in user_schedule: {str(e)}")  # לוג השגיאה
+        flash('אירעה שגיאה בטעינת לוח המשמרות', 'error')
         return redirect(url_for('login'))
-    
-    schedule = system.get_weekly_schedule()
-    user_shifts = {}
-    
-    for day, shifts in schedule.items():
-        user_shifts[day] = []
-        for shift in shifts:
-            if username in shift['employees']:
-                user_shifts[day].append(shift)
-    
-    return render_template('user_schedule.html', 
-                         user_schedule=user_shifts, 
-                         system=system,
-                         username=username)
 
 @app.route('/download_user_schedule')
 @login_required
@@ -114,22 +137,39 @@ def download_user_schedule():
     pdf_file = create_schedule_pdf(user_shifts, filename)
     return send_file(pdf_file, as_attachment=True)
 
-# עדכון הראוט הראשי להיות מוגן
+# עדכון הראוט הראשי להיות מגן
 @app.route('/')
 @login_required
 def index():
     if not session.get('username') or not system.users[session['username']].is_admin:
         return redirect(url_for('user_schedule'))
-    schedule = system.get_weekly_schedule()
-    # שליחת רשימת כל העובדים לתבנית
-    all_employees = []
+    
+    view_type = request.args.get('view', 'week')
+    week_offset = int(request.args.get('week_offset', 0))
+    
+    schedule = system.get_weekly_schedule(week_offset)
+    
+    # שינוי בהכנת רשימת העובדים
+    employees = []
     for username, user in system.users.items():
-        if not user.is_admin:
-            all_employees.append({
+        if not user.is_admin:  # רק עובדים רגילים, לא מנהלים
+            employees.append({
                 'username': username,
-                'display_name': user.first_name  # רק שם פרטי
+                'display_name': f"{user.first_name} {user.last_name}".strip(),
+                'first_name': user.first_name,
+                'last_name': user.last_name
             })
-    return render_template('index.html', schedule=schedule, employees=all_employees, system=system)
+    
+    # הוספת מספר הערעורים הממתינים
+    pending_appeals_count = len(system.get_pending_appeals())
+    
+    return render_template('index.html',
+                         schedule=schedule,
+                         employees=employees,  # העברת רשימת העובדים המעודכנת
+                         system=system,
+                         current_week_offset=week_offset,
+                         view_type=view_type,
+                         pending_appeals_count=pending_appeals_count)
 
 @app.route('/assign_shift', methods=['POST'])
 def assign_shift():
@@ -194,22 +234,123 @@ def download_pdf():
     return send_file(pdf_file, as_attachment=True)
 
 @app.route('/employees')
+@login_required
 def employees():
-    # מחזיר את כל העובדים חוץ מהמנהל
-    all_employees = [
-        {
-            'username': username,
-            'first_name': user.first_name or username,  # אם אין שם פרטי, משתמש בשם המשתמש
-            'last_name': user.last_name or "",
-            'email': user.email or "",
-            'phone': user.phone or "",
-            'id_number': user.id_number or "",
-            'employee_number': user.employee_number or ""
-        }
-        for username, user in system.users.items()
-        if not user.is_admin
-    ]
-    return render_template('employees.html', employees=all_employees)
+    if not system.users[session['username']].is_admin:
+        return redirect(url_for('user_schedule'))
+    
+    # הכנת רשימת העובדים (לא כולל מנהלים)
+    employees_list = []
+    for username, user in system.users.items():
+        if not user.is_admin:
+            employees_list.append({
+                'username': username,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'employee_number': user.employee_number,
+                'phone': user.phone,
+                'email': user.email
+            })
+    
+    pending_appeals_count = len(system.get_pending_appeals())
+    return render_template('employees.html', 
+                         employees=employees_list,
+                         active_page='employees',
+                         pending_appeals_count=pending_appeals_count)
+
+@app.route('/add_employee', methods=['GET', 'POST'])
+@login_required
+def add_employee():
+    if not system.users[session['username']].is_admin:
+        return redirect(url_for('user_schedule'))
+    
+    if request.method == 'POST':
+        # הוספת העובד החדש
+        username = request.form.get('username')
+        if username in system.users:
+            flash('שם משתמש כבר קיים במערכת', 'error')
+            return redirect(url_for('employees'))
+        
+        user = User(
+            username=username,
+            password=request.form.get('password', '1234'),  # סיסמת ברירת מחדל
+            first_name=request.form.get('first_name', ''),
+            last_name=request.form.get('last_name', ''),
+            email=request.form.get('email', ''),
+            phone=request.form.get('phone', ''),
+            employee_number=request.form.get('employee_number', ''),
+            is_admin=False
+        )
+        
+        system.users[username] = user
+        system.save_to_file('schedule.json')
+        flash('העובד נוסף בהצלחה', 'success')
+        return redirect(url_for('employees'))
+    
+    pending_appeals_count = len(system.get_pending_appeals())
+    return render_template('add_employee.html', 
+                         active_page='employees',
+                         pending_appeals_count=pending_appeals_count)
+
+@app.route('/edit_employee/<username>', methods=['GET', 'POST'])
+@login_required
+def edit_employee(username):
+    if not system.users[session['username']].is_admin:
+        return redirect(url_for('user_schedule'))
+    
+    if request.method == 'POST':
+        try:
+            user = system.users[username]
+            user.first_name = request.form.get('first_name', user.first_name)
+            user.last_name = request.form.get('last_name', user.last_name)
+            user.employee_number = request.form.get('employee_number', user.employee_number)
+            user.phone = request.form.get('phone', user.phone)
+            user.email = request.form.get('email', user.email)
+            
+            system.save_to_file('schedule.json')
+            flash('פרטי העובד עודכנו בהצלחה', 'success')
+            return redirect(url_for('employees'))
+        except Exception as e:
+            print(f"Error updating employee: {str(e)}")
+            flash('אירעה שגיאה בעדכון פרטי העובד', 'error')
+            return redirect(url_for('employees'))
+    
+    user = system.users.get(username)
+    if not user:
+        flash('העובד לא נמצא', 'error')
+        return redirect(url_for('employees'))
+    
+    pending_appeals_count = len(system.get_pending_appeals())
+    return render_template('edit_employee.html', 
+                         user=user,
+                         active_page='employees',
+                         pending_appeals_count=pending_appeals_count)
+
+@app.route('/delete_employee/<username>', methods=['POST'])
+@login_required
+def delete_employee(username):
+    """מחיקת עובד לפי שם משתמש"""
+    if not system.users[session['username']].is_admin:
+        return jsonify({'success': False, 'message': 'אין הרשאה'}), 403
+    
+    try:
+        if username in system.users and not system.users[username].is_admin:
+            # הסרת העובד מכל המשמרות
+            for day, shifts in system.weekly_shifts.items():
+                for shift in shifts:
+                    if username in shift.employees:
+                        shift.remove_employee(username)
+            
+            # מחיקת העובד מהמערכת
+            del system.users[username]
+            system.save_to_file('schedule.json')
+            
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'message': 'העובד לא נמצא'}), 404
+    except Exception as e:
+        print(f"Error deleting employee: {str(e)}")
+        return jsonify({'success': False, 'message': 'אירעה שגיאה במחיקת העובד'}), 500
 
 @app.route('/get_employee/<username>')
 def get_employee(username):
@@ -240,7 +381,7 @@ def save_employee():
             # יצירת עובד חדש
             first_name = data.get('first_name', '')
             last_name = data.get('last_name', '')
-            username = f"{first_name}_{last_name}"  # יצירת שם משתמש מהשם המלא
+            username = f"{first_name}_{last_name}"  # צירת שם משתמש מהשם המלא
             
             if username in system.users:
                 return jsonify({
@@ -284,17 +425,6 @@ def save_employee():
             'message': f'אירעה שגיאה בשמירת העובד: {str(e)}'
         })
 
-@app.route('/delete_employee', methods=['POST'])
-def delete_employee():
-    data = request.json
-    username = data.get('username')
-    
-    if username in system.users:
-        del system.users[username]
-        system.save_to_file('schedule.json')  # שמירת השינויים
-        return jsonify({'success': True})
-    return jsonify({'success': False, 'message': 'עובד לא נמצא'})
-
 def get_employee_color(employee):
     """מחזיר צבע לפי שם העובד"""
     colors = {
@@ -303,11 +433,89 @@ def get_employee_color(employee):
         'moshe': '#dc3545',   # אדום
         'sara': '#6f42c1'     # סגול
     }
-    return colors.get(employee, '#6c757d')  # אפור כבירת מחדל
+    return colors.get(employee, '#6c757d')  # אפור כירת מחדל
 
 @app.context_processor
 def utility_processor():
     return dict(get_employee_color=get_employee_color)
+
+@app.route('/create_appeal', methods=['POST'])
+@login_required
+def create_appeal():
+    try:
+        day = request.form.get('day')
+        shift_index = int(request.form.get('shift_index'))
+        reason = request.form.get('reason')
+        employee = session['username']
+        
+        # בדיקה אם יש ערעור קיים או נדחה
+        has_appeal, status, response = system.has_active_appeal(employee, day, shift_index)
+        
+        if has_appeal:
+            if status == 'pending':
+                flash('כבר קיים ערעור פעיל על משמרת זו. נא להמתין לתשובת המנהל.', 'error')
+            elif status == 'rejected':
+                flash(f'הערעור על משמרת זו כבר נדחה. סיבה: {response}', 'error')
+            return redirect(url_for('user_schedule'))
+        
+        success, message = system.create_appeal(employee, day, shift_index, reason)
+        
+        if success:
+            flash('הערעור נשלח בהצלחה. המנהל יבחן את בקשתך בהקדם.', 'success')
+        else:
+            flash(message, 'error')
+            
+        return redirect(url_for('user_schedule'))
+    except Exception as e:
+        flash('אירעה שגיאה בשליחת הערעור', 'error')
+        return redirect(url_for('user_schedule'))
+
+@app.route('/handle_appeal', methods=['POST'])
+@login_required
+def handle_appeal():
+    if not system.users[session['username']].is_admin:
+        return jsonify({'success': False, 'message': 'אין הרשאה'})
+    
+    data = request.get_json()
+    appeal_index = int(data.get('appeal_index'))
+    decision = data.get('decision')
+    response = data.get('response', '')
+    
+    appeal = system.appeals[appeal_index]
+    
+    if decision == 'approved':
+        # הסרת העובד מהמשמרת
+        system.remove_from_shift('admin', appeal.day, appeal.shift_index, appeal.employee)
+        # שליחת התראה לעובד
+        system.add_notification(appeal.employee, 
+            f"הערעור שלך על משמרת {appeal.day} אושר. המשמרת בוטלה.",
+            'appeal_approved')
+    else:
+        # שליחת התראה על דחיית הערעור
+        system.add_notification(appeal.employee,
+            f"הערעור שלך על משמרת {appeal.day} נדחה. סיבה: {response}",
+            'appeal_rejected')
+    
+    success = system.handle_appeal(appeal_index, decision, response)
+    return jsonify({'success': success})
+
+@app.route('/appeals')
+@login_required
+def view_appeals():
+    if not system.users[session['username']].is_admin:
+        return redirect(url_for('user_schedule'))
+    
+    # מיון הערעורים לפי תאריך (חדש לישן)
+    sorted_appeals = sorted(system.appeals, key=lambda x: x.created_at, reverse=True)
+    
+    # סינון רק ערעורים פעילים (ממתינים)
+    active_appeals = [appeal for appeal in sorted_appeals if appeal.status == 'pending']
+    
+    pending_appeals_count = len(active_appeals)
+    return render_template('appeals.html',
+                         appeals=active_appeals,
+                         active_page='appeals',
+                         pending_appeals_count=pending_appeals_count)
 
 if __name__ == '__main__':
     app.run(debug=True) 

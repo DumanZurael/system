@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>מערכת ניהול משמרות - שקדייה</title>
+    {% include 'admin_base.html' %}
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -173,93 +174,77 @@
         .logout-btn:hover {
             background-color: #c82333;
         }
+        .admin-nav {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .admin-nav a {
+            margin-left: 15px;
+            padding: 5px 10px;
+            text-decoration: none;
+            color: #333;
+        }
+        .admin-nav a:hover {
+            background-color: #e9ecef;
+            border-radius: 4px;
+        }
+        .appeals-badge {
+            background-color: #dc3545;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 0.8em;
+            margin-right: 5px;
+        }
     </style>
 </head>
 <body>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div class="container">
         <h1>מערכת ניהול משמרות - שקדייה</h1>
-        <div>
-            <span style="margin-left: 10px;">שלום, {{ system.users[session['username']].first_name }}</span>
-            <a href="{{ url_for('logout') }}" class="logout-btn">התנתק</a>
-        </div>
-    </div>
-
-    <div style="text-align: center; margin-bottom: 20px;">
-        <a href="{{ url_for('employees') }}" style="
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #17a2b8;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            margin: 10px;">
-            ניהול עובדים
-        </a>
-    </div>
-
-    <div class="calendar">
-        {% for day, shifts in schedule.items() %}
-        <div class="day-card">
-            <div class="day-header">{{ day }}</div>
-            {% for shift in shifts %}
-            <div class="shift {% if loop.index0 == 0 %}shift-morning{% else %}shift-evening{% endif %}">
-                <div>{{ 'משמרת בוקר' if loop.index0 == 0 else 'משמרת ערב' }}</div>
-                <div>{{ shift.start_time }} - {{ shift.end_time }}</div>
-                <div class="employees-list">
-                    <div class="employees-container">
-                        {% set outer_loop = loop %}
-                        {% for employee in shift.employees %}
-                            <span class="employee-tag" 
-                                  style="border-color: {{ get_employee_color(employee) }}">
-                                <span class="employee-name" 
-                                      onclick="showEmployeeDetails('{{ employee }}')">
-                                    {{ system.users[employee].first_name }}
-                                </span>
-                                <span class="remove-employee" 
-                                      onclick="removeFromShift('{{ day }}', {{ outer_loop.index0 }}, '{{ employee }}')">✕</span>
-                            </span>
-                        {% endfor %}
+        
+        {% include 'admin_nav.html' %}
+        
+        <div class="content-wrapper">
+            <div class="calendar">
+                {% for day, shifts in schedule.items() %}
+                <div class="day-card">
+                    <div class="day-header">{{ day }}</div>
+                    {% for shift in shifts %}
+                    <div class="shift {% if loop.index0 == 0 %}shift-morning{% else %}shift-evening{% endif %}">
+                        <div>{{ 'משמרת בוקר' if loop.index0 == 0 else 'משמרת ערב' }}</div>
+                        <div>{{ shift.start_time }} - {{ shift.end_time }}</div>
+                        <div class="employees-list">
+                            <div class="employees-container">
+                                {% set outer_loop = loop %}
+                                {% for employee in shift.employees %}
+                                    <span class="employee-tag" 
+                                          style="border-color: {{ get_employee_color(employee) }}">
+                                        <span class="employee-name" 
+                                              onclick="showEmployeeDetails('{{ employee }}')">
+                                            {{ system.users[employee].first_name }}
+                                        </span>
+                                        <span class="remove-employee" 
+                                              onclick="removeFromShift('{{ day }}', {{ outer_loop.index0 }}, '{{ employee }}')">✕</span>
+                                    </span>
+                                {% endfor %}
+                            </div>
+                            <select id="employee-{{ day }}-{{ loop.index0 }}">
+                                <option value="" disabled selected>בחר עובד</option>
+                                {% for employee in employees %}
+                                    <option value="{{ employee.username }}" 
+                                            style="background-color: {{ get_employee_color(employee.username) }}; color: white;">
+                                        {{ employee.display_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <button onclick="assignSelectedEmployee('{{ day }}', {{ loop.index0 }})" class="add-button">הוסף</button>
+                        </div>
                     </div>
-                    <select id="employee-{{ day }}-{{ loop.index0 }}">
-                        <option value="" disabled selected>בחר עובד</option>
-                        {% for employee in employees %}
-                            <option value="{{ employee.username }}" 
-                                    style="background-color: {{ get_employee_color(employee.username) }}; color: white;">
-                                {{ employee.display_name }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                    <button onclick="assignSelectedEmployee('{{ day }}', {{ loop.index0 }})" class="add-button">הוסף</button>
+                    {% endfor %}
                 </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% endfor %}
-    </div>
-
-    <div style="text-align: center; margin-top: 20px;">
-        <a href="{{ url_for('preview_schedule') }}" style="
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #28a745;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            margin: 10px;">
-            תצוגה מקדימה והורדת PDF
-        </a>
-    </div>
-
-    <div id="employeeDetailsModal" class="employee-details-modal">
-        <div class="employee-details-content">
-            <span class="close-modal" onclick="hideEmployeeDetails()">&times;</span>
-            <h3>פרטי עובד</h3>
-            <div id="employeeDetailsContent">
-                <p><strong>שם מלא:</strong> <span id="fullName"></span></p>
-                <p><strong>מספר עובד:</strong> <span id="empNumber"></span></p>
-                <p><strong>טלפון:</strong> <span id="empPhone"></span></p>
-                <p><strong>אימייל:</strong> <span id="empEmail"></span></p>
-                <p><strong>תעודת זהות:</strong> <span id="empId"></span></p>
+                {% endfor %}
             </div>
         </div>
     </div>

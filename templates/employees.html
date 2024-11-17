@@ -3,273 +3,131 @@
 <head>
     <meta charset="UTF-8">
     <title>ניהול עובדים - שקדייה</title>
+    {% include 'admin_base.html' %}
     <style>
-        /* סגנונות בסיסיים */
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background-color: white;
+        .employees-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
             padding: 20px;
+        }
+        
+        .employee-card {
+            background-color: white;
             border-radius: 8px;
+            padding: 15px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-
-        /* סגנון טבלת עובדים */
-        .employees-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
+        
+        .employee-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
         }
-        .employees-table th, .employees-table td {
-            padding: 12px;
-            text-align: right;
-            border-bottom: 1px solid #ddd;
-        }
-        .employees-table th {
-            background-color: #f8f9fa;
+        
+        .employee-name {
+            font-size: 1.2em;
             font-weight: bold;
         }
         
-        /* סגנון כפתורים */
-        .btn {
-            padding: 8px 16px;
+        .employee-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .employee-info {
+            margin: 5px 0;
+            color: #666;
+        }
+        
+        .add-employee-btn {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            background-color: #28a745;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 25px;
+            text-decoration: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .add-employee-btn:hover {
+            background-color: #218838;
+        }
+        
+        .edit-btn, .delete-btn {
+            padding: 5px 10px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            margin: 5px;
+            font-size: 0.9em;
         }
-        .btn-add {
-            background-color: #28a745;
+        
+        .edit-btn {
+            background-color: #007bff;
             color: white;
         }
-        .btn-edit {
-            background-color: #ffc107;
-        }
-        .btn-delete {
+        
+        .delete-btn {
             background-color: #dc3545;
             color: white;
-        }
-
-        /* סגנון המודאל */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            z-index: 1000;
-        }
-        .modal-content {
-            position: relative;
-            background-color: white;
-            margin: 10% auto;
-            padding: 20px;
-            width: 50%;
-            border-radius: 8px;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        .form-group input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>ניהול עובדים</h1>
+        <h1>ניהול עובדים - שקדייה</h1>
         
-        <div class="nav-buttons">
-            <a href="{{ url_for('index') }}" class="btn">חזרה ללוח משמרות</a>
-            <button onclick="showAddEmployeeForm()" class="btn btn-add">הוסף עובד חדש +</button>
-        </div>
-
-        <!-- טבלת עובדים -->
-        <table class="employees-table">
-            <thead>
-                <tr>
-                    <th>שם פרטי</th>
-                    <th>שם משפחה</th>
-                    <th>מספר עובד</th>
-                    <th>טלפון</th>
-                    <th>אימייל</th>
-                    <th>פעולות</th>
-                </tr>
-            </thead>
-            <tbody>
+        {% include 'admin_nav.html' %}
+        
+        <div class="content-wrapper">
+            <div class="employees-grid">
                 {% for employee in employees %}
-                <tr>
-                    <td>{{ employee.first_name }}</td>
-                    <td>{{ employee.last_name }}</td>
-                    <td>{{ employee.employee_number }}</td>
-                    <td>{{ employee.phone }}</td>
-                    <td>{{ employee.email }}</td>
-                    <td>
-                        <button class="btn btn-edit" onclick="editEmployee('{{ employee.username }}')">ערוך</button>
-                        <button class="btn btn-delete" onclick="deleteEmployee('{{ employee.username }}')">מחק</button>
-                    </td>
-                </tr>
+                    <div class="employee-card">
+                        <div class="employee-header">
+                            <div class="employee-name">{{ employee.first_name }} {{ employee.last_name }}</div>
+                            <div class="employee-actions">
+                                <button class="edit-btn" onclick="editEmployee('{{ employee.username }}')">ערוך</button>
+                                <button class="delete-btn" onclick="deleteEmployee('{{ employee.username }}')">מחק</button>
+                            </div>
+                        </div>
+                        <div class="employee-info">שם משתמש: {{ employee.username }}</div>
+                        {% if employee.employee_number %}
+                            <div class="employee-info">מספר עובד: {{ employee.employee_number }}</div>
+                        {% endif %}
+                        {% if employee.phone %}
+                            <div class="employee-info">טלפון: {{ employee.phone }}</div>
+                        {% endif %}
+                        {% if employee.email %}
+                            <div class="employee-info">אימייל: {{ employee.email }}</div>
+                        {% endif %}
+                    </div>
                 {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <!-- מודאל להוספת/עריכת עובד -->
-    <div id="employeeModal" class="modal">
-        <div class="modal-content">
-            <h2 id="modalTitle">הוסף עובד חדש</h2>
-            <form id="employeeForm">
-                <div class="form-group">
-                    <label for="employee_number">מספר עובד:</label>
-                    <input type="text" id="employee_number" placeholder="לדוגמה: 12345">
-                </div>
-                <div class="form-group">
-                    <label for="first_name">שם פרטי: *</label>
-                    <input type="text" id="first_name" required placeholder="הזן שם פרטי">
-                </div>
-                <div class="form-group">
-                    <label for="last_name">שם משפחה: *</label>
-                    <input type="text" id="last_name" required>
-                </div>
-                <div class="form-group">
-                    <label for="id_number">תעודת זהות: *</label>
-                    <input type="text" id="id_number" required>
-                </div>
-                <div class="form-group">
-                    <label for="phone">טלפון: *</label>
-                    <input type="tel" id="phone" required>
-                </div>
-                <div class="form-group">
-                    <label for="email">אימייל:</label>
-                    <input type="email" id="email">
-                </div>
-                <input type="hidden" id="username">
-                <div style="text-align: center; margin-top: 20px;">
-                    <button type="submit" class="btn btn-add">שמור</button>
-                    <button type="button" onclick="hideEmployeeModal()" class="btn">ביטול</button>
-                </div>
-            </form>
+            </div>
+            
+            <a href="{{ url_for('add_employee') }}" class="add-employee-btn">+ הוסף עובד חדש</a>
         </div>
     </div>
 
     <script>
-        // פונקציות JavaScript לניהול טופס
-        function showAddEmployeeForm() {
-            document.getElementById('modalTitle').textContent = 'הוסף עובד חדש';
-            document.getElementById('employeeForm').reset();
-            document.getElementById('username').value = '';
-            document.getElementById('employeeModal').style.display = 'block';
-        }
-
-        function hideEmployeeModal() {
-            document.getElementById('employeeModal').style.display = 'none';
-        }
-
         function editEmployee(username) {
-            console.log('Editing employee:', username);
-            fetch(`/get_employee/${username}`)
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Employee data:', data);
-                    if (data.error) {
-                        alert('לא נמצאו פרטי עובד');
-                        return;
-                    }
-                    
-                    document.getElementById('modalTitle').textContent = 'ערוך עובד';
-                    document.getElementById('username').value = data.username;
-                    document.getElementById('employee_number').value = data.employee_number || '';
-                    document.getElementById('first_name').value = data.first_name || '';
-                    document.getElementById('last_name').value = data.last_name || '';
-                    document.getElementById('id_number').value = data.id_number || '';
-                    document.getElementById('phone').value = data.phone || '';
-                    document.getElementById('email').value = data.email || '';
-                    
-                    document.getElementById('employeeModal').style.display = 'block';
-                })
-                .catch(error => {
-                    console.error('Error fetching employee data:', error);
-                    alert('אירעה שגיאה בטעינת פרטי העובד');
-                });
+            window.location.href = `/edit_employee/${username}`;
         }
-
-        // הוספת מאזיני אירועים כשהדף נטען
-        document.addEventListener('DOMContentLoaded', function() {
-            // סגירת המודאל בלחיצה מחוץ לתוכן
-            window.onclick = function(event) {
-                if (event.target == document.getElementById('employeeModal')) {
-                    hideEmployeeModal();
-                }
-            }
-
-            // טיפול בשליחת הטופס
-            document.getElementById('employeeForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const formData = {
-                    username: document.getElementById('username').value,
-                    employee_number: document.getElementById('employee_number').value,
-                    first_name: document.getElementById('first_name').value,
-                    last_name: document.getElementById('last_name').value,
-                    id_number: document.getElementById('id_number').value,
-                    phone: document.getElementById('phone').value,
-                    email: document.getElementById('email').value
-                };
-
-                console.log('Sending form data:', formData); // לדיבוג
-
-                fetch('/save_employee', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(formData)
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        alert(data.message || 'אירעה שגיאה בשמירת העובד');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error saving employee:', error);
-                    alert('אירעה שגיאה בשמירת העובד');
-                });
-            });
-        });
-
+        
         function deleteEmployee(username) {
             if (confirm('האם אתה בטוח שברצונך למחוק עובד זה?')) {
-                fetch('/delete_employee', {
+                fetch(`/delete_employee/${username}`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ username: username })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
+                        'Content-Type': 'application/json'
+                    }
+                }).then(response => {
+                    if (response.ok) {
+                        window.location.reload();
                     } else {
-                        alert(data.message || 'אירעה שגיאה במחיקת העובד');
+                        alert('אירעה שגיאה במחיקת העובד');
                     }
                 });
             }
