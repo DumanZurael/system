@@ -1,13 +1,9 @@
-# Python files
+# Python
 __pycache__/
 *.pyc
 *.pyo
-
-# Sensitive data
-schedule.json
 .env
-
-# System files
+schedule.json
 .DS_Store
 
 # Virtual Environment
