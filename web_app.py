@@ -21,10 +21,23 @@ admin_user = User(
 # הוספת המנהל למערכת
 system.users['admin'] = admin_user
 
+# הוספת משתמש לדוגמה
+demo_user = User(
+    username='yossi',
+    password='1234',
+    first_name='יוסי',
+    last_name='כהן',
+    email='yossi@example.com',
+    phone='0501234567',
+    employee_number='1001',
+    is_admin=False
+)
+system.users['yossi'] = demo_user
+
 # שמירת הנתונים
 if not os.path.exists('schedule.json'):
     system.save_to_file('schedule.json')
-    print("Created new admin account")
+    print("Created new admin account and demo user")
 else:
     try:
         system.load_from_file('schedule.json')
@@ -238,27 +251,23 @@ def download_pdf():
 @app.route('/employees')
 @login_required
 def employees():
+    """הצגת דף ניהול עובדים"""
     if not system.users[session['username']].is_admin:
         return redirect(url_for('user_schedule'))
     
-    # הכנת רשימת העובדים (לא כולל מנהלים)
-    employees_list = []
-    for username, user in system.users.items():
-        if not user.is_admin:
-            employees_list.append({
-                'username': username,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'employee_number': user.employee_number,
-                'phone': user.phone,
-                'email': user.email
-            })
-    
-    pending_appeals_count = len(system.get_pending_appeals())
-    return render_template('employees.html', 
-                         employees=employees_list,
-                         active_page='employees',
-                         pending_appeals_count=pending_appeals_count)
+    try:
+        # מספר הערעורים הממתינים
+        pending_appeals_count = len(system.get_pending_appeals())
+        
+        # העברת אובייקט המערכת לתבנית
+        return render_template('employees.html',
+                             system=system,
+                             active_page='employees',
+                             pending_appeals_count=pending_appeals_count)
+    except Exception as e:
+        print(f"Error in employees route: {str(e)}")  # לוג השגיאה
+        flash('אירעה שגיאה בטעינת דף העובדים', 'error')
+        return redirect(url_for('index'))
 
 @app.route('/add_employee', methods=['GET', 'POST'])
 @login_required
@@ -485,31 +494,44 @@ def create_appeal():
 @app.route('/handle_appeal', methods=['POST'])
 @login_required
 def handle_appeal():
+    """טיפול בערעור על ידי מנהל"""
     if not system.users[session['username']].is_admin:
         return jsonify({'success': False, 'message': 'אין הרשאה'})
     
-    data = request.get_json()
-    appeal_index = int(data.get('appeal_index'))
-    decision = data.get('decision')
-    response = data.get('response', '')
-    
-    appeal = system.appeals[appeal_index]
-    
-    if decision == 'approved':
-        # הסרת העובד מהמשמרת
-        system.remove_from_shift('admin', appeal.day, appeal.shift_index, appeal.employee)
-        # שליחת התראה לעובד
-        system.add_notification(appeal.employee, 
-            f"הערעור שלך על משמרת {appeal.day} אושר. המשמרת בוטלה.",
-            'appeal_approved')
-    else:
-        # שליחת התראה על דחיית הערעור
-        system.add_notification(appeal.employee,
-            f"הערעור שלך על משמרת {appeal.day} נדחה. סיבה: {response}",
-            'appeal_rejected')
-    
-    success = system.handle_appeal(appeal_index, decision, response)
-    return jsonify({'success': success})
+    try:
+        data = request.json
+        appeal_index = data.get('appeal_index')
+        decision = data.get('decision')
+        response = data.get('response', '')
+        
+        # מציאת הערעור הספציפי
+        appeals = system.get_pending_appeals()
+        if 0 <= appeal_index < len(appeals):
+            appeal = appeals[appeal_index]
+            appeal.status = decision
+            appeal.admin_response = response
+            
+            # שמירת השינויים
+            system.save_to_file('schedule.json')
+            
+            # אם הערעור אושר, הסרת העובד מהמשמרת
+            if decision == 'approved':
+                day = appeal.day
+                shift_index = appeal.shift_index
+                employee = appeal.employee
+                if day in system.weekly_shifts:
+                    shift = system.weekly_shifts[day][shift_index]
+                    if employee in shift.employees:
+                        shift.employees.remove(employee)
+                        system.save_to_file('schedule.json')
+            
+            return jsonify({'success': True})
+        
+        return jsonify({'success': False, 'message': 'ערעור לא נמצא'})
+        
+    except Exception as e:
+        print(f"Error handling appeal: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)})
 
 @app.route('/appeals')
 @login_required
@@ -523,11 +545,17 @@ def view_appeals():
     # סינון רק ערעורים פעילים (ממתינים)
     active_appeals = [appeal for appeal in sorted_appeals if appeal.status == 'pending']
     
+    # הדפסת לוג לדיבוג
+    print(f"Found {len(active_appeals)} active appeals")
+    for appeal in active_appeals:
+        print(f"Appeal from {appeal.employee} for {appeal.day}")
+    
     pending_appeals_count = len(active_appeals)
-    return render_template('appeals.html',
+    return render_template('appeals.html',  # שינוי מ-admin_appeals.html ל-appeals.html
                          appeals=active_appeals,
                          active_page='appeals',
-                         pending_appeals_count=pending_appeals_count)
+                         pending_appeals_count=pending_appeals_count,
+                         system=system)  # העברת אובייקט המערכת לתבנית
 
 if __name__ == '__main__':
     app.run(debug=True) 

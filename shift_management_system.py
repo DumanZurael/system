@@ -83,6 +83,7 @@ ROLES = {
 }
 
 class ShiftAppeal:
+    """מחלקה המייצגת ערעור על משמרת"""
     def __init__(self, employee: str, day: str, shift_index: int, reason: str):
         self.employee = employee
         self.day = day
@@ -91,6 +92,32 @@ class ShiftAppeal:
         self.status = 'pending'  # pending, approved, rejected
         self.admin_response = ''
         self.created_at = datetime.now()
+
+    def to_dict(self):
+        """המרת הערעור למילון"""
+        return {
+            'employee': self.employee,
+            'day': self.day,
+            'shift_index': self.shift_index,
+            'reason': self.reason,
+            'status': self.status,
+            'admin_response': self.admin_response,
+            'created_at': self.created_at.isoformat()
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        """יצירת ערעור ממילון"""
+        appeal = cls(
+            data['employee'],
+            data['day'],
+            data['shift_index'],
+            data['reason']
+        )
+        appeal.status = data['status']
+        appeal.admin_response = data['admin_response']
+        appeal.created_at = datetime.fromisoformat(data['created_at'])
+        return appeal
 
 class ShiftManagementSystem:
     def __init__(self):
@@ -303,16 +330,7 @@ class ShiftManagementSystem:
         """שמירת נתוני המערכת לקובץ"""
         data = {
             'users': {
-                username: {
-                    'is_admin': user.is_admin,
-                    'first_name': user.first_name,
-                    'last_name': user.last_name,
-                    'email': user.email,
-                    'phone': user.phone,
-                    'id_number': user.id_number,
-                    'employee_number': user.employee_number
-                } 
-                for username, user in self.users.items()
+                username: user.to_dict() for username, user in self.users.items()
             },
             'shifts': {
                 day: [{
@@ -321,7 +339,19 @@ class ShiftManagementSystem:
                     'employees': shift.employees
                 } for shift in shifts]
                 for day, shifts in self.weekly_shifts.items()
-            }
+            },
+            'appeals': [
+                {
+                    'employee': appeal.employee,
+                    'day': appeal.day,
+                    'shift_index': appeal.shift_index,
+                    'reason': appeal.reason,
+                    'status': appeal.status,
+                    'admin_response': appeal.admin_response,
+                    'created_at': appeal.created_at.isoformat()
+                }
+                for appeal in self.appeals
+            ]
         }
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -331,29 +361,38 @@ class ShiftManagementSystem:
         with open(filename, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
+        # טעינת משתמשים
         self.users = {}
         for username, user_data in data['users'].items():
-            self.users[username] = User(
-                username=username,
-                is_admin=user_data.get('is_admin', False),
-                first_name=user_data.get('first_name', ''),
-                last_name=user_data.get('last_name', ''),
-                email=user_data.get('email', ''),
-                phone=user_data.get('phone', ''),
-                id_number=user_data.get('id_number', ''),
-                employee_number=user_data.get('employee_number', '')
-            )
+            self.users[username] = User.from_dict({
+                'username': username,
+                **user_data
+            })
         
+        # טעינת משמרות
         self.weekly_shifts = {}
-        for day, shifts_data in data['shifts'].items():
+        for day, shifts_data in data.get('shifts', {}).items():
             self.weekly_shifts[day] = []
             for shift_data in shifts_data:
                 start = datetime.strptime(shift_data['start'], '%H:%M').time()
                 end = datetime.strptime(shift_data['end'], '%H:%M').time()
                 shift = Shift(start, end)
-                for employee in shift_data.get('employees', []):
-                    shift.add_employee(employee)
+                shift.employees = shift_data.get('employees', [])
                 self.weekly_shifts[day].append(shift)
+        
+        # טעינת ערעורים
+        self.appeals = []
+        for appeal_data in data.get('appeals', []):
+            appeal = ShiftAppeal(
+                appeal_data['employee'],
+                appeal_data['day'],
+                appeal_data['shift_index'],
+                appeal_data['reason']
+            )
+            appeal.status = appeal_data['status']
+            appeal.admin_response = appeal_data['admin_response']
+            appeal.created_at = datetime.fromisoformat(appeal_data['created_at'])
+            self.appeals.append(appeal)
 
     def auto_backup(self):
         """יצירת גיבוי אוטומטי"""
@@ -362,22 +401,29 @@ class ShiftManagementSystem:
     
     def create_appeal(self, employee: str, day: str, shift_index: int, reason: str) -> tuple[bool, str]:
         """יצירת ערעור חדש על משמרת"""
-        # בדיקה שהעובד אכן משובץ במשמרת
-        if day in self.weekly_shifts:
-            shift = self.weekly_shifts[day][shift_index]
-            if employee in shift.employees:
-                # בדיקה אם כבר קיים ערעור על משמרת זו
-                for appeal in self.appeals:
-                    if (appeal.employee == employee and 
-                        appeal.day == day and 
-                        appeal.shift_index == shift_index and 
-                        appeal.status == 'pending'):
-                        return False, "כבר קיים ערעור על משמרת זו"
-                
-                appeal = ShiftAppeal(employee, day, shift_index, reason)
-                self.appeals.append(appeal)
-                return True, "הערעור נשלח בהצלחה"
-        return False, "לא ניתן להגיש ערעור על משמרת זו"
+        try:
+            # בדיקה שהעובד אכן משובץ במשמרת
+            if day in self.weekly_shifts:
+                shift = self.weekly_shifts[day][shift_index]
+                if employee in shift.employees:
+                    # בדיקה אם כבר קיים ערעור על משמרת זו
+                    for appeal in self.appeals:
+                        if (appeal.employee == employee and 
+                            appeal.day == day and 
+                            appeal.shift_index == shift_index and 
+                            appeal.status == 'pending'):
+                            return False, "כבר קיים ערעור על משמרת זו"
+                    
+                    # יצירת ערעור חדש
+                    appeal = ShiftAppeal(employee, day, shift_index, reason)
+                    self.appeals.append(appeal)
+                    print(f"Created new appeal: {employee} for {day}")  # לוג
+                    self.save_to_file('schedule.json')  # שמירת השינויים
+                    return True, "הערעור נשלח בהצלחה"
+            return False, "לא ניתן להגיש ערעור על משמרת זו"
+        except Exception as e:
+            print(f"Error creating appeal: {str(e)}")  # לוג שגיאה
+            return False, f"אירעה שגיאה: {str(e)}"
     
     def handle_appeal(self, appeal_index: int, admin_decision: str, admin_response: str = '') -> bool:
         """טיפול בערעור על ידי מנהל"""
@@ -430,7 +476,7 @@ class ShiftManagementSystem:
         return False, '', ''
 
 if __name__ == "__main__":
-    # אם מריצים את הקובץ הזה ישירות, לא יקר�� כלום
+    # אם מריצים את הקובץ הזה ישירות, לא יקר כלום
     # צריך להריץ את shift_management_demo.py
     print("זהו מודול המכיל את הלוגיקה של המערכת.")
     print("כדי להריץ את המערכת, הרץ את הקובץ shift_management_demo.py")
