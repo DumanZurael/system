@@ -30,17 +30,29 @@ def init_admin():
         logger.error(f"Error creating admin user: {e}")
         raise
 
-# אתחול המערכת
-try:
-    if os.path.exists('schedule.json'):
+def init_system():
+    """אתחול המערכת עם משתמש מנהל"""
+    admin_user = User(
+        username='admin',
+        password='admin123',
+        first_name='מנהל',
+        last_name='ראשי',
+        is_admin=True
+    )
+    system = ShiftManagementSystem()
+    system.users['admin'] = admin_user
+    return system
+
+# בדיקה אם הקובץ קיים, אם לא - יצירת מערכת חדשה
+if not os.path.exists('schedule.json'):
+    system = init_system()
+    system.save_to_file('schedule.json')
+else:
+    try:
         system.load_from_file('schedule.json')
-        logger.info("Loaded existing schedule.json")
-    else:
-        logger.info("schedule.json not found, initializing new system")
-        system = init_admin()
-except Exception as e:
-    logger.error(f"Error during initialization: {e}")
-    system = init_admin()
+    except:
+        system = init_system()
+        system.save_to_file('schedule.json')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
