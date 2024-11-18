@@ -2,13 +2,14 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify, s
 from shift_management_system import ShiftManagementSystem, User
 import secrets
 import os
+import json
 
 app = Flask(__name__)
-app.secret_key = secrets.token_hex(16)
+app.secret_key = os.getenv('SECRET_KEY', secrets.token_hex(16))
 system = ShiftManagementSystem()
 
-# יצירת משתמש מנהל אם לא קיים
-if 'admin' not in system.users:
+# יצירת משתמש מנהל בזיכרון אם הקובץ לא קיים
+def init_admin():
     admin_user = User(
         username='admin',
         password='admin123',
@@ -17,8 +18,18 @@ if 'admin' not in system.users:
         is_admin=True
     )
     system.users['admin'] = admin_user
-    # שמירת השינויים לקובץ
-    system.save_to_file('schedule.json')
+    return system
+
+# ניסיון לטעון את הקובץ, אם לא קיים - יצירת מנהל ברירת מחדל
+try:
+    system.load_from_file('schedule.json')
+except (FileNotFoundError, json.JSONDecodeError):
+    print("Creating new system with default admin")
+    system = init_admin()
+    try:
+        system.save_to_file('schedule.json')
+    except Exception as e:
+        print(f"Warning: Could not save to file: {e}")
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -26,8 +37,9 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        print(f"Login attempt - Username: {username}")  # לוג לדיבאג
-        print(f"Available users: {list(system.users.keys())}")  # לוג לדיבאג
+        # בדיקה אם המשתמש הוא admin ואין לנו משתמשים במערכת
+        if username == 'admin' and password == 'admin123' and not system.users:
+            system = init_admin()
         
         if username in system.users and system.users[username].password == password:
             session['username'] = username
@@ -59,4 +71,5 @@ def logout():
 # ... שאר הקוד ...
 
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
