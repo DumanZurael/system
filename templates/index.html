@@ -254,12 +254,127 @@
         .employee-name:hover {
             opacity: 0.8;
         }
+
+        /* התאמה ל��ובייל */
+        @media (max-width: 768px) {
+            .calendar {
+                display: block;  /* שינוי מ-grid ל-block */
+                padding: 10px;
+            }
+
+            .day-card {
+                margin-bottom: 20px;
+                border: 1px solid var(--border-color);
+                border-radius: 12px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                animation: slideIn 0.3s ease-out;
+            }
+
+            .day-header {
+                background-color: var(--primary-color);
+                color: white;
+                padding: 15px;
+                border-radius: 12px 12px 0 0;
+                font-size: 1.2em;
+                text-align: center;
+            }
+
+            .shift {
+                padding: 15px;
+                margin: 10px;
+                border-radius: 8px;
+                background-color: var(--card-background);
+            }
+
+            .employees-container {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin: 10px 0;
+            }
+
+            .employee-tag {
+                padding: 8px 12px;
+                border-radius: 20px;
+                font-size: 0.9em;
+            }
+
+            /* אנימציית כני לכרטיסי ימים */
+            @keyframes slideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            /* התאמת תיבת הבחירה והכפתור */
+            .shift-controls {
+                display: flex;
+                gap: 8px;
+                margin-top: 10px;
+            }
+
+            select {
+                flex: 1;
+                padding: 10px;
+                border-radius: 8px;
+                border: 1px solid var(--border-color);
+            }
+
+            .add-button {
+                padding: 10px 20px;
+                border-radius: 8px;
+            }
+
+            /* אינדיקטור לגלילה */
+            .scroll-indicator {
+                display: block;
+                text-align: center;
+                padding: 10px;
+                color: var(--text-secondary);
+                font-size: 0.9em;
+                margin-top: 10px;
+            }
+
+            .scroll-indicator::after {
+                content: '⌄';
+                display: block;
+                font-size: 1.5em;
+                animation: bounce 1s infinite;
+            }
+
+            @keyframes bounce {
+                0%, 100% { transform: translateY(0); }
+                50% { transform: translateY(5px); }
+            }
+        }
+
+        h1 {
+            color: var(--text-primary);  /* שימוש בצע הטקסט הדינמי */
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+            font-weight: 600;
+            text-align: center;
+            padding: 1rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        /* התאמה למובייל */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.5rem;
+                padding: 0.8rem;
+                margin-top: 3rem; /* מרווח מלמעלה בשביל כפתור ההמבורגר */
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>מערכת ניהול משמרות - שקדייה</h1>
-        
         {% include 'admin_nav.html' %}
         
         <div class="content-wrapper">
@@ -412,6 +527,42 @@
                 hideEmployeeDetails();
             }
         }
+
+        // הוספת אינדיקטור גלילה במובייל
+        document.addEventListener('DOMContentLoaded', function() {
+            const indicator = document.createElement('div');
+            indicator.className = 'scroll-indicator';
+            indicator.textContent = 'גלול למטה לימים נוספים';
+            
+            // פונקציה לבדיקת גודל המסך והצגת/הסתרת האינדיקטור
+            function handleScreenSize() {
+                const container = document.querySelector('.calendar');
+                
+                // הסרת אינדיקטור קיים אם יש
+                const existingIndicator = document.querySelector('.scroll-indicator');
+                if (existingIndicator) {
+                    existingIndicator.remove();
+                }
+                
+                // הוספת האינדיקטור רק במובייל
+                if (window.innerWidth <= 768) {
+                    container.insertBefore(indicator, container.firstChild);
+                    
+                    // הסתרת האינדיקטור בגלילה לסוף הדף
+                    window.addEventListener('scroll', function() {
+                        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 100) {
+                            indicator.style.display = 'none';
+                        } else {
+                            indicator.style.display = 'block';
+                        }
+                    });
+                }
+            }
+
+            // הפעלה בטעינה ובשינוי גודל המסך
+            handleScreenSize();
+            window.addEventListener('resize', handleScreenSize);
+        });
     </script>
 </body>
 </html> 
