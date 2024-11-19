@@ -27,9 +27,7 @@ def init_admin():
             last_name='ראשי',
             is_admin=True
         )
-        system.users[ADMIN_USERNAME] = admin_user
-        logger.info("Admin user created successfully")
-        return system
+        return admin_user
     except Exception as e:
         logger.error(f"Error creating admin user: {e}")
         raise
@@ -41,14 +39,17 @@ try:
 except Exception as e:
     logger.error(f"Error during initialization: {e}")
 
-# בדיקה אם הקובץ קיים, אם לא - יצירת מערכת חדשה
-if not os.path.exists('schedule.json'):
-    system.save_to_file('schedule.json')
-else:
-    try:
-        system.load_from_file('schedule.json')
-    except:
+# בדיקת הרשאות וניסיון ליצור את הקובץ
+try:
+    if not os.path.exists('schedule.json'):
+        system = ShiftManagementSystem()
+        admin_user = init_admin()
+        system.users[ADMIN_USERNAME] = admin_user
         system.save_to_file('schedule.json')
+    else:
+        system.load_from_file('schedule.json')
+except Exception as e:
+    logger.error(f"Error with schedule.json: {e}")
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -58,21 +59,18 @@ def login():
             password = request.form.get('password')
             
             logger.info(f"Login attempt for user: {username}")
-            logger.debug(f"Available users: {list(system.users.keys())}")
             
-            # אם אין משתמשים במערכת, יצירת admin
-            if not system.users:
-                logger.info("No users found, initializing admin")
-                system = init_admin()
+            # בדיקה אם זה משתמש מנהל
+            if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+                session['username'] = username
+                logger.info("Admin login successful")
+                return redirect(url_for('index'))
             
+            # בדיקה אם המשתמש קיים במערכת
             if username in system.users and system.users[username].password == password:
                 session['username'] = username
                 logger.info(f"User {username} logged in successfully")
-                
-                if system.users[username].is_admin:
-                    return redirect(url_for('index'))
-                else:
-                    return redirect(url_for('user_schedule'))
+                return redirect(url_for('user_schedule'))
             
             logger.warning(f"Failed login attempt for user: {username}")
             flash('שם משתמש או סיסמה שגויים', 'error')
