@@ -13,17 +13,21 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', secrets.token_hex(16))
 system = ShiftManagementSystem()
 
-# יצירת משתמש מנהל בזיכרון
+# קריאת פרטי מנהל ממשתני סביבה
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'admin123')
+
 def init_admin():
+    """יצירת משתמש מנהל"""
     try:
         admin_user = User(
-            username='admin',
-            password='admin123',
+            username=ADMIN_USERNAME,
+            password=ADMIN_PASSWORD,
             first_name='מנהל',
             last_name='ראשי',
             is_admin=True
         )
-        system.users['admin'] = admin_user
+        system.users[ADMIN_USERNAME] = admin_user
         logger.info("Admin user created successfully")
         return system
     except Exception as e:
@@ -32,15 +36,19 @@ def init_admin():
 
 # אתחול המערכת
 try:
-    if os.path.exists('schedule.json'):
-        system.load_from_file('schedule.json')
-        logger.info("Loaded existing schedule.json")
-    else:
-        logger.info("schedule.json not found, initializing new system")
-        system = init_admin()
+    system = init_admin()
+    logger.info("System initialized with admin user")
 except Exception as e:
     logger.error(f"Error during initialization: {e}")
-    system = init_admin()
+
+# בדיקה אם הקובץ קיים, אם לא - יצירת מערכת חדשה
+if not os.path.exists('schedule.json'):
+    system.save_to_file('schedule.json')
+else:
+    try:
+        system.load_from_file('schedule.json')
+    except:
+        system.save_to_file('schedule.json')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
