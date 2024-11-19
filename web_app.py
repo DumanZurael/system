@@ -34,22 +34,36 @@ def init_system():
         )
         system.users[ADMIN_USERNAME] = admin_user
         
-        # יצירת לוח משמרות ריק
+        # יצירת לוח משמרות ברירת מחדל
         system.weekly_shifts = {
-            'ראשון': [{'start_time': '07:00', 'end_time': '15:00', 'employees': []},
-                      {'start_time': '15:00', 'end_time': '23:00', 'employees': []}],
-            'שני': [{'start_time': '07:00', 'end_time': '15:00', 'employees': []},
-                    {'start_time': '15:00', 'end_time': '23:00', 'employees': []}],
-            'שלישי': [{'start_time': '07:00', 'end_time': '15:00', 'employees': []},
-                      {'start_time': '15:00', 'end_time': '23:00', 'employees': []}],
-            'רביעי': [{'start_time': '07:00', 'end_time': '15:00', 'employees': []},
-                      {'start_time': '15:00', 'end_time': '23:00', 'employees': []}],
-            'חמישי': [{'start_time': '07:00', 'end_time': '15:00', 'employees': []},
-                      {'start_time': '15:00', 'end_time': '23:00', 'employees': []}],
-            'שישי': [{'start_time': '07:00', 'end_time': '15:00', 'employees': []},
-                     {'start_time': '15:00', 'end_time': '23:00', 'employees': []}],
-            'שבת': [{'start_time': '07:00', 'end_time': '15:00', 'employees': []},
-                    {'start_time': '15:00', 'end_time': '23:00', 'employees': []}]
+            'ראשון': [
+                {'start_time': '07:00', 'end_time': '15:00', 'employees': []},
+                {'start_time': '15:00', 'end_time': '23:00', 'employees': []}
+            ],
+            'שני': [
+                {'start_time': '07:00', 'end_time': '15:00', 'employees': []},
+                {'start_time': '15:00', 'end_time': '23:00', 'employees': []}
+            ],
+            'שלישי': [
+                {'start_time': '07:00', 'end_time': '15:00', 'employees': []},
+                {'start_time': '15:00', 'end_time': '23:00', 'employees': []}
+            ],
+            'רביעי': [
+                {'start_time': '07:00', 'end_time': '15:00', 'employees': []},
+                {'start_time': '15:00', 'end_time': '23:00', 'employees': []}
+            ],
+            'חמישי': [
+                {'start_time': '07:00', 'end_time': '15:00', 'employees': []},
+                {'start_time': '15:00', 'end_time': '23:00', 'employees': []}
+            ],
+            'שישי': [
+                {'start_time': '07:00', 'end_time': '15:00', 'employees': []},
+                {'start_time': '15:00', 'end_time': '23:00', 'employees': []}
+            ],
+            'שבת': [
+                {'start_time': '07:00', 'end_time': '15:00', 'employees': []},
+                {'start_time': '15:00', 'end_time': '23:00', 'employees': []}
+            ]
         }
         
         logger.info("System initialized successfully")
@@ -59,37 +73,12 @@ def init_system():
         raise
 
 # אתחול המערכת בתחילת הריצה
-system = init_system()
-
-@app.route('/')
-def index():
-    try:
-        if 'username' not in session:
-            logger.info("No user in session, redirecting to login")
-            return redirect(url_for('login'))
-        
-        username = session['username']
-        logger.info(f"User in session: {username}")
-        
-        if username == ADMIN_USERNAME:
-            try:
-                schedule = system.get_weekly_schedule()
-                logger.info("Successfully got weekly schedule")
-                return render_template('index.html', 
-                                    schedule=schedule,
-                                    system=system)
-            except Exception as e:
-                logger.error(f"Error getting schedule: {e}")
-                flash('אירעה שגיאה בטעינת לוח המשמרות', 'error')
-                return render_template('index.html', 
-                                    schedule=system.weekly_shifts,
-                                    system=system)
-        else:
-            return redirect(url_for('user_schedule'))
-    except Exception as e:
-        logger.error(f"Error in index route: {e}")
-        flash('אירעה שגיאה במערכת', 'error')
-        return redirect(url_for('login'))
+try:
+    system = init_system()
+    logger.info("System initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize system: {e}")
+    system = None
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -102,6 +91,7 @@ def login():
             
             if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
                 session['username'] = username
+                session['is_admin'] = True
                 logger.info("Admin login successful")
                 return redirect(url_for('index'))
             
@@ -113,6 +103,42 @@ def login():
         logger.error(f"Error in login route: {e}")
         flash('אירעה שגיאה במערכת', 'error')
         return render_template('login.html')
+
+@app.route('/')
+def index():
+    try:
+        if 'username' not in session:
+            logger.info("No user in session, redirecting to login")
+            return redirect(url_for('login'))
+        
+        if not system:
+            logger.error("System not initialized")
+            flash('אירעה שגיאה במערכת', 'error')
+            return redirect(url_for('login'))
+        
+        username = session.get('username')
+        is_admin = session.get('is_admin', False)
+        
+        if username == ADMIN_USERNAME and is_admin:
+            try:
+                schedule = system.weekly_shifts
+                logger.info("Successfully got weekly schedule")
+                return render_template('index.html', 
+                                    schedule=schedule,
+                                    system=system)
+            except Exception as e:
+                logger.error(f"Error getting schedule: {e}")
+                flash('אירעה שגיאה בטעינת לוח המשמרות', 'error')
+                return render_template('index.html', 
+                                    schedule={},
+                                    system=system)
+        else:
+            return redirect(url_for('user_schedule'))
+            
+    except Exception as e:
+        logger.error(f"Error in index route: {e}")
+        flash('אירעה שגיאה במערכת', 'error')
+        return redirect(url_for('login'))
 
 @app.route('/logout')
 def logout():
