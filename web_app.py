@@ -34,25 +34,32 @@ def init_system():
         )
         system.users[ADMIN_USERNAME] = admin_user
         
-        # שמירת המערכת לקובץ
-        system.save_to_file('schedule.json')
+        # יצירת לוח משמרות ריק
+        system.weekly_shifts = {
+            'ראשון': [{'start_time': '07:00', 'end_time': '15:00', 'employees': []},
+                      {'start_time': '15:00', 'end_time': '23:00', 'employees': []}],
+            'שני': [{'start_time': '07:00', 'end_time': '15:00', 'employees': []},
+                    {'start_time': '15:00', 'end_time': '23:00', 'employees': []}],
+            'שלישי': [{'start_time': '07:00', 'end_time': '15:00', 'employees': []},
+                      {'start_time': '15:00', 'end_time': '23:00', 'employees': []}],
+            'רביעי': [{'start_time': '07:00', 'end_time': '15:00', 'employees': []},
+                      {'start_time': '15:00', 'end_time': '23:00', 'employees': []}],
+            'חמישי': [{'start_time': '07:00', 'end_time': '15:00', 'employees': []},
+                      {'start_time': '15:00', 'end_time': '23:00', 'employees': []}],
+            'שישי': [{'start_time': '07:00', 'end_time': '15:00', 'employees': []},
+                     {'start_time': '15:00', 'end_time': '23:00', 'employees': []}],
+            'שבת': [{'start_time': '07:00', 'end_time': '15:00', 'employees': []},
+                    {'start_time': '15:00', 'end_time': '23:00', 'employees': []}]
+        }
+        
         logger.info("System initialized successfully")
         return system
     except Exception as e:
         logger.error(f"Error initializing system: {e}")
         raise
 
-try:
-    if os.path.exists('schedule.json'):
-        system = ShiftManagementSystem()
-        system.load_from_file('schedule.json')
-        logger.info("Loaded existing system from schedule.json")
-    else:
-        system = init_system()
-        logger.info("Created new system")
-except Exception as e:
-    logger.error(f"Error loading/creating system: {e}")
-    system = init_system()
+# אתחול המערכת בתחילת הריצה
+system = init_system()
 
 @app.route('/')
 def index():
@@ -75,7 +82,7 @@ def index():
                 logger.error(f"Error getting schedule: {e}")
                 flash('אירעה שגיאה בטעינת לוח המשמרות', 'error')
                 return render_template('index.html', 
-                                    schedule={},
+                                    schedule=system.weekly_shifts,
                                     system=system)
         else:
             return redirect(url_for('user_schedule'))
