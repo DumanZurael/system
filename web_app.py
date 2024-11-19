@@ -4,6 +4,7 @@ import secrets
 import os
 import json
 import logging
+import traceback
 
 # הגדרת לוגים מפורטים יותר
 logging.basicConfig(
@@ -69,7 +70,8 @@ def init_system():
         logger.info("System initialized successfully")
         return system
     except Exception as e:
-        logger.error(f"Error initializing system: {e}")
+        logger.error(f"Error initializing system: {str(e)}")
+        logger.error(traceback.format_exc())
         raise
 
 # אתחול המערכת בתחילת הריצה
@@ -77,7 +79,8 @@ try:
     system = init_system()
     logger.info("System initialized successfully")
 except Exception as e:
-    logger.error(f"Failed to initialize system: {e}")
+    logger.error(f"Failed to initialize system: {str(e)}")
+    logger.error(traceback.format_exc())
     system = None
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -100,7 +103,8 @@ def login():
         
         return render_template('login.html')
     except Exception as e:
-        logger.error(f"Error in login route: {e}")
+        logger.error(f"Error in login route: {str(e)}")
+        logger.error(traceback.format_exc())
         flash('אירעה שגיאה במערכת', 'error')
         return render_template('login.html')
 
@@ -127,7 +131,8 @@ def index():
                                     schedule=schedule,
                                     system=system)
             except Exception as e:
-                logger.error(f"Error getting schedule: {e}")
+                logger.error(f"Error getting schedule: {str(e)}")
+                logger.error(traceback.format_exc())
                 flash('אירעה שגיאה בטעינת לוח המשמרות', 'error')
                 return render_template('index.html', 
                                     schedule={},
@@ -136,7 +141,8 @@ def index():
             return redirect(url_for('user_schedule'))
             
     except Exception as e:
-        logger.error(f"Error in index route: {e}")
+        logger.error(f"Error in index route: {str(e)}")
+        logger.error(traceback.format_exc())
         flash('אירעה שגיאה במערכת', 'error')
         return redirect(url_for('login'))
 
